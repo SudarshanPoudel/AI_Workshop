@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PDF Q&A</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 24px 32px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 28px;
+    }
+
+    section {
+      margin-bottom: 30px;
+    }
+
+    input[type="file"] {
+      display: block;
+      margin-top: 10px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 10px 18px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+    }
+
+    button:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .answer-box {
+      background: #f9fafb;
+      padding: 18px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .source {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .source span {
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📄 PDF Question Answering</h1>
+
+    <!-- Upload Section -->
+    <section>
+      <h3>Upload PDF</h3>
+      <input type="file" id="fileInput" accept="application/pdf" />
+      <button onclick="uploadFile()">Upload</button>
+      <div class="status" id="uploadStatus"></div>
+    </section>
+
+    <!-- Ask Section -->
+    <section>
+      <h3>Ask a Question</h3>
+      <input
+        type="text"
+        id="questionInput"
+        placeholder="e.g. What is Diffie-Hellman key exchange?"
+      />
+      <button onclick="askQuestion()">Ask</button>
+    </section>
+
+    <!-- Answer Section -->
+    <section id="answerSection" style="display:none;">
+      <h3>Answer</h3>
+      <div class="answer-box" id="answerText"></div>
+      <div class="source" id="sourceInfo"></div>
+    </section>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    async function uploadFile() {
+      const fileInput = document.getElementById("fileInput");
+      const status = document.getElementById("uploadStatus");
+
+      if (!fileInput.files.length) {
+        status.textContent = "Please select a PDF file.";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      status.textContent = "Uploading...";
+
+      try {
+        const res = await fetch(`${API_BASE}/uploadfile`, {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.detail || "Upload failed");
+        }
+
+        status.textContent = data.message || "Upload successful";
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+      }
+    }
+
+    async function askQuestion() {
+      const question = document.getElementById("questionInput").value.trim();
+
+      if (!question) return;
+
+      const answerSection = document.getElementById("answerSection");
+      const answerText = document.getElementById("answerText");
+      const sourceInfo = document.getElementById("sourceInfo");
+
+      answerSection.style.display = "block";
+      answerText.textContent = "Thinking...";
+      sourceInfo.textContent = "";
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/ask?question=${encodeURIComponent(question)}`
+        );
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.detail || "Request failed");
+        }
+
+        answerText.textContent = data.answer;
+
+        if (data.filename || data.page_no) {
+          sourceInfo.innerHTML = `
+            <span>Source:</span>
+            ${data.filename || "Unknown file"}
+            ${data.page_no ? `(page ${data.page_no})` : ""}
+          `;
+        }
+      } catch (err) {
+        answerText.textContent = "Error: " + err.message;
+      }
+    }
+  </script>
+</body>
+</html>
